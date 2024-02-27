@@ -6,7 +6,35 @@ import { baseSepolia } from "viem/chains";
 import { descriptorAbi } from "./abis/descriptor.js";
 import { seederAbi } from "./abis/seeder.js";
 import { getContract } from "viem";
-import { imgData } from "./image-data.js";
+import { imgData as gnarImg } from "./image-data.js";
+
+type ImageDetail = {
+  filename: string;
+  data: string;
+};
+
+type Images = {
+  bodies?: ImageDetail[];
+  accessories?: ImageDetail[];
+  glasses?: ImageDetail[];
+  heads?: ImageDetail[];
+  backgrounds?: ImageDetail[];
+  palette?: string[];
+};
+
+type ImageData = {
+  images: Images;
+};
+
+// Adjusted type to reflect that the properties will now hold arrays of strings.
+type ConsolidatedData = {
+  palette: string[];
+  accessories: string[];
+  bodies: string[];
+  glasses: string[];
+  heads: string[];
+  backgrounds: string[];
+};
 
 if (!process.env.RPC_URL) {
   throw new Error("RPC URL required");
@@ -29,15 +57,36 @@ const publicClient = createPublicClient({
 });
 
 function formatImgData() {
-  //  imgData.images.accessories
-  //  imgData.images.bodies
-  //  imgData.images.glasses
-  //  imgData.images.heads
-  //  imgData.palette
+  const imgData = gnarImg;
+
+  const result: ConsolidatedData = {
+    accessories: [],
+    bodies: [],
+    glasses: [],
+    heads: [],
+    backgrounds: [],
+    palette: [],
+  };
 
   for (const { images, palette } of imgData) {
-    console.log(images.accessories);
+    if (images.accessories) {
+      result.accessories.push(...images.accessories.map((acc) => acc.data));
+    }
+    if (images.bodies) {
+      result.bodies.push(...images.bodies.map((body) => body.data));
+    }
+    if (images.glasses) {
+      result.glasses.push(...images.glasses.map((glass) => glass.data));
+    }
+    if (images.heads) {
+      result.heads.push(...images.heads.map((head) => head.data));
+    }
+    if (images.backgrounds) {
+      result.backgrounds.push(...images.backgrounds.map((bg) => bg.data));
+    }
   }
+
+  return result;
 }
 
 async function main() {
@@ -53,18 +102,45 @@ async function main() {
     client: { public: publicClient, wallet: walletClient },
   });
 
-  // const seeder = await writeContract(config, {
-  //   seederAbi,
-  //   address: "0x3bc602D8760c6E36458f1f23640EA38366028c2D",
-  //   functionName: "transferFrom",
-  //   args: [
-  //     "0xd2135CfB216b74109775236E36d4b433F1DF507B",
-  //     "0xA0Cf798816D4b9b9866b5330EEa46a18382f251e",
-  //     123n,
-  //   ],
-  // });
+  const imgData = formatImgData();
 
-  formatImgData();
+  console.log("adding colors");
+  const addManyColors = await descriptor.write.addManyColorsToPalette([
+    0,
+    imgData.palette,
+  ]);
+  console.log("tx hash: ", addManyColors);
+
+  console.log("adding backgrounds");
+  console.log(imgData.backgrounds);
+  const addManyBackgrounds = await descriptor.write.addManyBackgrounds([
+    imgData.backgrounds,
+  ]);
+  console.log("tx hash: ", addManyBackgrounds);
+
+  // console.log("adding accessories");
+  // const addManyAccessories = await descriptor.write.addManyAccessories([
+  //   imgData.accessories as readonly `0x${string}`[],
+  // ]);
+  // console.log("tx hash: ", addManyAccessories);
+
+  // console.log("adding bodies");
+  // const addManyBodies = await descriptor.write.addManyBodies([
+  //   imgData.bodies as readonly `0x${string}`[],
+  // ]);
+  // console.log("tx hash: ", addManyBodies);
+
+  // console.log("adding heads");
+  // const addManyHeads = await descriptor.write.addManyHeads([
+  //   imgData.heads as readonly `0x${string}`[],
+  // ]);
+  // console.log("tx hash: ", addManyHeads);
+
+  // console.log("adding glasses");
+  // const addManyGlasses = await descriptor.write.addManyGlasses([
+  //   imgData.glasses as readonly `0x${string}`[],
+  // ]);
+  // console.log("tx hash: ", addManyGlasses);
 }
 
 main().catch((e) => {

@@ -41,7 +41,13 @@ const readPngImage = async (path: string) => {
 const encode = async () => {
   const encoder = new PNGCollectionEncoder();
 
-  const partfolders = ["1-bodies", "2-accessories", "3-heads", "4-glasses"];
+  const partfolders = [
+    "0-backgrounds",
+    "1-bodies",
+    "2-accessories",
+    "3-heads",
+    "4-glasses",
+  ];
   for (const folder of partfolders) {
     const folderpath = path.join(__dirname, "../images/Gnars", folder);
     const files = await fs.readdir(folderpath);

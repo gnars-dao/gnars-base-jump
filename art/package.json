@@ -5,8 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "encode": "node ./src/index.js",
-    "add-traits": "node ./src/updateContract.js",
+    "encode": "tsx ./src/main.ts",
+    "add-traits": "tsx ./src/updateContract.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "start": "tsc && node ./dist/main.js",
