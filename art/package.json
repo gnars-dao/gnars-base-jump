@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "Gnars, Gnars OG, Gnars HD traits and other gnarly artwork.",
   "main": "index.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "encode": "node ./src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "add-traits": "node ./src/updateContract.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "tsc && node ./dist/main.js",
+    "dev": "tsx watch ./src/main.ts"
   },
   "author": "",
   "license": "ISC",
@@ -14,7 +18,14 @@
     "@nouns/sdk": "^0.4.0",
     "@wagmi/connectors": "^4.1.14",
     "@wagmi/core": "^2.6.5",
+    "dotenv": "^16.4.5",
     "pngjs": "^7.0.0",
     "viem": "^2.7.14"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.1",
+    "@types/pngjs": "^6.0.4",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
   }
 }
