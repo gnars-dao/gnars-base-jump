@@ -1,7 +1,13 @@
 {
   "type": "module",
+  "scripts": {
+    "createMerkleMinterTree": "node run.js createMerkleMinterTree",
+    "getContractHolders": "node run.js getContractHolders",
+    "snapshotHolders": "node run.js snapshotHolders"
+  },
   "dependencies": {
     "dotenv": "^16.4.5",
+    "lanyard": "^1.1.2",
     "web3": "^4.5.0"
   }
 }
