@@ -15,6 +15,7 @@ Make a copy of `.env.sample` called `.env` and fill it in with appropriate value
 ### Run
 
 #### Get Contract Holders
+This script is used to get a snapshot of non-EOA holders. It was important to Gnars to ensure minimal tokens were held by contracts before the snapshot to avoid stranding them on Base.
 ```shell
 npm run getContractHolders
 ```
