@@ -27,7 +27,7 @@ async function main(args) {
 /**
  * Create a merkle tree to be used by the "MerkleReserveMinter".
  * MerkleReserveMinter: https://basescan.org/address/0x7D8Ea0D056f5B8443cdD8495D4e90FFCf0a8A354#writeContract
- * See "./input/holdersSnapshotExample.json" as an example of how the file should be formatted.
+ * See "./data/holdersSnapshotExample.json" as an example of how the file should be formatted.
  * Holders snapshot can be created using "snapshotHolders" script.
  * Adapted from https://github.com/ourzora/nouns-builder/blob/e230be88e5268bc250d90405c7678f7314a5fbe3/apps/web/src/modules/create-proposal/utils/prepareMemberMerkleRoot.ts
  */
@@ -47,12 +47,12 @@ async function createMerkleMinterTree(args) {
 
 /**
  * Read a "balance snapshot" and create a collection of holder addresses that are not EOAs.
- * See "./input/balancesSnapshotExample.json" as an example of how the file should be formatted.
+ * See "./data/balancesSnapshotExample.json" as an example of how the file should be formatted.
  * Easily create a snapshot using https://holders.at/
  * Convert CSV to JSON using https://csvjson.com/csv2json
  */
 async function getContractHolders(args) {
-  console.log('Running getContractOwners...');
+  console.log('Running getContractHolders...');
 
   const contracts = [];
   for (let i = 0; i < snapshot.length; i++) {
@@ -61,7 +61,7 @@ async function getContractHolders(args) {
     if (code !== '0x') contracts.push(targetAddress);
   }
 
-  const outputFileName = './output/contractOwners.json';
+  const outputFileName = './data/contractHolders.json';
   writeFileSync(outputFileName, JSON.stringify(contracts, undefined, 2));
 
   console.log(`Results written to "${outputFileName}".`);
@@ -86,11 +86,12 @@ async function snapshotHolders(args) {
     '0x558BFFF0D583416f7C4e380625c7865821b8E95C',
   );
 
-  const totalSupply = Number(await gnars.methods.totalSupply().call(null, blockNumber));
-  const percentDividend = Math.floor(totalSupply / 100);
+  const maxTokenId = 5018; // Contract total supply value is incorrect
+  // const totalSupply = Number(await gnars.methods.totalSupply().call(null, blockNumber));
+  const percentDividend = Math.floor(maxTokenId / 100);
 
   const holders = [];
-  for (let i = 0; i < totalSupply; i++) {
+  for (let i = 0; i <= maxTokenId; i++) {
     try {
       holders.push(await gnars.methods.ownerOf(i).call(null, blockNumber));
     } catch(e) {
