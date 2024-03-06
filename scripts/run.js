@@ -34,13 +34,22 @@ async function main(args) {
 async function createMerkleMinterTree(args) {
   console.log('Running createMerkleMinterTree...');
 
+  function isOG(tokenId) {
+    return tokenId <= parseInt(process.env.MAX_OG_GNAR_TOKEN_ID, 10);
+  }
+
   const leaves = snapshot.map((holder, index) => (
-    holder !== null ? web3.eth.abi.encodeParameters(['address', 'uint256'], [holder, index]) : undefined
+    holder !== null || isOG(index)
+      ? web3.eth.abi.encodeParameters(
+          ['address', 'uint256'],
+          [isOG(index) ? process.env.GNARS_TREASURY_ADDRESS : holder, index]
+        )
+      : undefined
   )).filter((leaf) => Boolean(leaf));
 
   const merkleRoot = await createTree({
     unhashedLeaves: leaves,
-  }).then((x) => `0x${x.merkleRoot}`);
+  }).then((x) => x.merkleRoot);
 
   console.log(`Merkle root: ${merkleRoot}`);
 }
