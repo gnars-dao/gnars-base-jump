@@ -1,9 +1,18 @@
 import Web3 from 'web3';
 import { readFileSync, writeFileSync } from 'fs';
-import { createTree } from 'lanyard';
+import { createTree, getProof } from 'lanyard';
+import { Defender } from '@openzeppelin/defender-sdk';
+import _ from 'lodash';
 import 'dotenv/config';
 
+const debugEnabled = process.env.DEBUG_ENABLED === 'true';
+const dryRunEnabled = process.env.DRY_RUN_ENABLED === 'true';
+
 const web3 = new Web3(process.env.PROVIDER_URL);
+const relayer = new Defender({
+  relayerApiKey: process.env.OPENZEPPELIN_RELAYER_API_KEY,
+  relayerApiSecret: process.env.OPENZEPPELIN_RELAYER_SECRET_KEY
+});
 const snapshot = JSON.parse(readFileSync(process.env.SNAPSHOT_PATH, 'utf-8'));
 
 async function main(args) {
@@ -18,6 +27,9 @@ async function main(args) {
       break;
     case 'snapshotHolders':
       await snapshotHolders(args);
+      break;
+    case 'airdropTokens':
+      await airdropTokens(args);
       break;
     default:
       console.log(`Not matching script named "${scriptName}".`);
@@ -38,7 +50,7 @@ async function createMerkleMinterTree(args) {
     return tokenId <= parseInt(process.env.MAX_OG_GNAR_TOKEN_ID, 10);
   }
 
-  const leaves = snapshot.map((holder, index) => (
+  const unhashedLeaves = snapshot.map((holder, index) => (
     holder !== null || isOG(index)
       ? web3.eth.abi.encodeParameters(
           ['address', 'uint256'],
@@ -47,11 +59,81 @@ async function createMerkleMinterTree(args) {
       : undefined
   )).filter((leaf) => Boolean(leaf));
 
-  const merkleRoot = await createTree({
-    unhashedLeaves: leaves,
-  }).then((x) => x.merkleRoot);
+  const merkleRoot = await createTree({ unhashedLeaves }).then((x) => x.merkleRoot);
 
   console.log(`Merkle root: ${merkleRoot}`);
+
+  return { merkleRoot, unhashedLeaves };
+}
+
+/**
+ * Airdrop tokens with "MerkleReserveMinter" contract using merkle tree data.
+ * If the script fails midway through, you can set `START_CHUNK` envar to pick up
+ * where it left off. There's no risk of accidentally airdropping the same token twice.
+ */
+async function airdropTokens(args) {
+  console.log('Airdropping tokens...');
+
+  const merkleTreeData = await createMerkleMinterTree(args);
+  const unhashedLeavesChunks = _.chunk(merkleTreeData.unhashedLeaves, parseInt(process.env.AIRDROP_CHUNK_SIZE, 10));
+
+  const merkleReserveMinter = new web3.eth.Contract(
+    JSON.parse(readFileSync(process.env.MERKLE_RESERVE_MINTER_ABI_PATH, 'utf-8')),
+    process.env.MERKLE_RESERVE_MINTER_ADDRESS,
+  );
+
+  for (let chunk = 0; chunk < unhashedLeavesChunks.length; chunk += 1) {
+    if (chunk + 1 >= parseInt(process.env.START_CHUNK, 10)) {
+
+      process.stdout.write(`Processing chunk ${chunk + 1}/${unhashedLeavesChunks.length}...`);
+
+      const proofs = await Promise.all(unhashedLeavesChunks[chunk].map((unhashedLeaf) => getProof({
+        merkleRoot: merkleTreeData.merkleRoot,
+        unhashedLeaf
+      })));
+
+      const data = merkleReserveMinter.methods.mintFromReserve(
+        process.env.GNARS_TOKEN_ADDRESS,
+        proofs.map((proof) => {
+          const decodedParams = web3.eth.abi.decodeParameters(['address', 'uint256'], proof.unhashedLeaf);
+          return [decodedParams[0], decodedParams[1], proof.proof]
+        })
+      ).encodeABI();
+
+      if (debugEnabled) console.log(data);
+
+      let tx;
+      if (!dryRunEnabled) {
+        tx = await relayer.relaySigner.sendTransaction({
+          to: process.env.MERKLE_RESERVE_MINTER_ADDRESS,
+          data,
+          gasLimit: 8000000,
+        });
+
+
+        /**
+         * Because of the speed of Base, the relayer tends to get a bit ahead of itself and
+         * occasionally fails because the account balance is out of sync with the network.
+         * Adding this timeout and check for pending transactions makes this script a bit more
+         * reliable.
+         */
+        const RELAYER_TIMEOUT = 5000;
+        let relayerStatus = await relayer.relaySigner.getRelayerStatus();
+        while (relayerStatus .numberOfPendingTransactions > 0) {
+          await new Promise(resolve => setTimeout(resolve, RELAYER_TIMEOUT));
+          relayerStatus = await relayer.relaySigner.getRelayerStatus();
+          console.log(`Pending transactions: ${relayerStatus.numberOfPendingTransactions}`);
+          console.log(`Pending tx cost: ${relayerStatus.pendingTxCost}`);
+        }
+      }
+
+      process.stdout.write('complete\n');
+
+      if (debugEnabled) console.log(tx ? tx : 'Transaction was not sent because this was a dry run.');
+    } else {
+      console.log(`Skipped chunk ${chunk + 1}`);
+    }
+  }
 }
 
 /**
@@ -89,18 +171,18 @@ async function snapshotHolders(args) {
 
   console.log(`Taking Gnars holder snapshot at block ${blockNumber}...`)
 
-  // https://etherscan.io/address/0x558bfff0d583416f7c4e380625c7865821b8e95c
   const gnars = new web3.eth.Contract(
-    JSON.parse(readFileSync('./abis/SkateContractV2.json', 'utf-8')),
-    '0x558BFFF0D583416f7C4e380625c7865821b8E95C',
+    JSON.parse(readFileSync(process.env.SNAPSHOT_TARGET_ABI_PATH, 'utf-8')),
+    process.env.SNAPSHOT_TARGET_ADDRESS,
   );
 
-  const maxTokenId = 5018; // Contract total supply value is incorrect
-  // const totalSupply = Number(await gnars.methods.totalSupply().call(null, blockNumber));
-  const percentDividend = Math.floor(maxTokenId / 100);
+  const totalSupply = process.env.MAX_TOKEN_ID ?
+    parseInt(process.env.MAX_TOKEN_ID, 10) :
+    Number(await gnars.methods.totalSupply().call(null, blockNumber));
+  const percentDividend = Math.floor(totalSupply / 100);
 
   const holders = [];
-  for (let i = 0; i <= maxTokenId; i++) {
+  for (let i = 0; i <= totalSupply; i++) {
     try {
       holders.push(await gnars.methods.ownerOf(i).call(null, blockNumber));
     } catch(e) {
