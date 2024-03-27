@@ -1,13 +1,16 @@
 {
   "type": "module",
   "scripts": {
+    "airdropTokens": "node run.js airdropTokens",
     "createMerkleMinterTree": "node run.js createMerkleMinterTree",
     "getContractHolders": "node run.js getContractHolders",
     "snapshotHolders": "node run.js snapshotHolders"
   },
   "dependencies": {
+    "@openzeppelin/defender-sdk": "^1.10.0",
     "dotenv": "^16.4.5",
     "lanyard": "^1.1.2",
+    "lodash": "^4.17.21",
     "web3": "^4.5.0"
   }
 }

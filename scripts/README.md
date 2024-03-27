@@ -30,3 +30,8 @@ Note: You can change `19325750` to any block number, but this is the block [chos
 ```shell
 npm run createMerkleMinterTree
 ```
+
+#### Airdrop tokens
+```shell
+npm run airdropTokens
+```
