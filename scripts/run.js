@@ -110,7 +110,6 @@ async function airdropTokens(args) {
           gasLimit: 8000000,
         });
 
-
         /**
          * Because of the speed of Base, the relayer tends to get a bit ahead of itself and
          * occasionally fails because the account balance is out of sync with the network.
